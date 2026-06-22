@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora de Crédito Habitação</title>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 400px; margin: 40px auto; padding: 20px; color: #333; }
+        h2 { text-align: center; color: #2c3e50; }
+        .input-group { margin-bottom: 25px; }
+        label { display: block; margin-bottom: 8px; font-weight: bold; color: #555; }
+        .controls { display: flex; align-items: center; gap: 10px; }
+        input[type="text"] { width: 110px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; text-align: right; font-family: monospace; font-size: 14px;}
+        input[type="range"] { flex-grow: 1; cursor: pointer; }
+        button { padding: 6px 12px; cursor: pointer; background-color: #3498db; color: white; border: none; border-radius: 4px; font-weight: bold; font-size: 16px;}
+        button:hover { background-color: #2980b9; }
+        .result { margin-top: 30px; padding: 20px; background: #e8f4fd; border-radius: 8px; text-align: center; border: 1px solid #b6d4fe; }
+        .result span { font-size: 28px; font-weight: bold; color: #2c3e50; display: block; margin-top: 10px;}
+    </style>
+</head>
+<body>
+
+    <h2>Calculadora de Crédito Habitação</h2>
+
+    <div class="input-group">
+        <label>Valor do imóvel (€)</label>
+        <div class="controls">
+            <button onclick="updateFromButton('imovel', -10000)">-</button>
+            <input type="range" id="imovel-slider" min="0" max="1000000" step="1000" value="210000" oninput="updateFromSlider('imovel')">
+            <button onclick="updateFromButton('imovel', 10000)">+</button>
+            <input type="text" id="imovel-text" value="210000" oninput="updateFromText('imovel')" onblur="formatText('imovel')">
+        </div>
+    </div>
+
+    <div class="input-group">
+        <label>Entrada (€)</label>
+        <div class="controls">
+            <button onclick="updateFromButton('entrada', -10000)">-</button>
+            <input type="range" id="entrada-slider" min="0" max="200000" step="1000" value="30000" oninput="updateFromSlider('entrada')">
+            <button onclick="updateFromButton('entrada', 10000)">+</button>
+            <input type="text" id="entrada-text" value="30000" oninput="updateFromText('entrada')" onblur="formatText('entrada')">
+        </div>
+    </div>
+
+    <div class="input-group">
+        <label>Prazo (meses)</label>
+        <div class="controls">
+            <button onclick="updateFromButton('prazo', -60)">-</button>
+            <input type="range" id="prazo-slider" min="12" max="480" step="12" value="360" oninput="updateFromSlider('prazo')">
+            <button onclick="updateFromButton('prazo', 60)">+</button>
+            <input type="text" id="prazo-text" value="360" oninput="updateFromText('prazo')" onblur="formatText('prazo')">
+        </div>
+    </div>
+
+    <div class="input-group">
+        <label>Taxa de Juros (%)</label>
+        <div class="controls">
+            <button onclick="updateFromButton('juros', -0.1)">-</button>
+            <input type="range" id="juros-slider" min="0" max="15" step="0.1" value="3.2" oninput="updateFromSlider('juros')">
+            <button onclick="updateFromButton('juros', 0.1)">+</button>
+            <input type="text" id="juros-text" value="3.2" oninput="updateFromText('juros')" onblur="formatText('juros')">
+        </div>
+    </div>
+
+    <div class="result">
+        <div style="font-size: 16px; color: #555; margin-bottom: 15px;">
+            Valor Financiado: <strong id="valor-financiado-display" style="color: #2c3e50;">150 000 €</strong>
+            <br>
+            Total do Empréstimo: <strong id="emprestimo" style="color: #2c3e50;">0 €</strong>
+        </div>
+            Valor da Prestação Mensal:
+        <span id="resultado">0,00 €</span>
+    </div>
+
+    <script>
+        // Helper to determine decimal places based on the input field
+        function getDecimals(id) {
+            return id === 'juros' ? 2 : 0; // Juros can have 2 decimal places, others are whole numbers
+        }
+
+        // Helper to add spaces every thousands and fix decimals
+        function formatNumber(num, decimals) {
+            return parseFloat(num).toFixed(decimals).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+        }
+
+        // Helper to turn strings with spaces back into raw math numbers
+        function parseNumber(str) {
+            return parseFloat(str.toString().replace(/\s/g, '')) || 0;
+        }
+
+        // Triggered when dragging the slider
+        function updateFromSlider(id) {
+            let slider = document.getElementById(id + '-slider');
+            let text = document.getElementById(id + '-text');
+            text.value = formatNumber(slider.value, getDecimals(id));
+            calculate();
+        }
+
+        // Triggered when typing in the text box
+        function updateFromText(id) {
+            let slider = document.getElementById(id + '-slider');
+            let text = document.getElementById(id + '-text');
+            let val = parseNumber(text.value);
+            
+            // Limitar o valor da Entrada enquanto se escreve
+            if (id === 'entrada') {
+                let maxVal = parseFloat(document.getElementById('imovel-slider').value) || 0;
+                if (val > maxVal) val = maxVal;
+            }
+
+            slider.value = val;
+            calculate();
+        }
+
+        // Triggered when clicking outside the text box (to add spaces without ruining typing)
+        function formatText(id) {
+            let text = document.getElementById(id + '-text');
+            let val = parseNumber(text.value);
+            text.value = formatNumber(val, getDecimals(id));
+        }
+
+        // Triggered when clicking + or - buttons
+        function updateFromButton(id, step) {
+            let slider = document.getElementById(id + '-slider');
+            
+            // Atualizar dinamicamente o limite máximo do slider da Entrada
+            if (id === 'entrada') {
+                slider.max = document.getElementById('imovel-slider').value;
+            }
+
+            let val = parseFloat(slider.value) + step;
+
+            // Prevent going below min or above max defined in HTML slider
+            if (val < parseFloat(slider.min)) val = parseFloat(slider.min);
+            if (val > parseFloat(slider.max)) val = parseFloat(slider.max);
+
+            slider.value = val;
+            updateFromSlider(id);
+        }
+
+        // Core Math function
+        function calculate() {
+            let imovel = parseFloat(document.getElementById('imovel-slider').value) || 0;
+            let entradaSlider = document.getElementById('entrada-slider');
+            let entradaText = document.getElementById('entrada-text');
+            
+            // Limita o valor máximo da Entrada ao Valor do Imóvel
+            entradaSlider.max = imovel;
+            
+            let entrada = parseFloat(entradaSlider.value) || 0;
+            let entradaRawText = parseNumber(entradaText.value);
+
+            // Corrige se a Entrada estiver maior do que o Imóvel 
+            // (ex: se reduziu o valor do imóvel para menos do que a entrada atual)
+            if (entradaRawText > imovel) {
+                entrada = imovel;
+                entradaSlider.value = imovel;
+                if (document.activeElement !== entradaText) {
+                    entradaText.value = formatNumber(imovel, getDecimals('entrada'));
+                }
+            }
+
+            let C = imovel - entrada; // Valor Financiado
+
+            // Mostrar o Valor Financiado calculado
+            document.getElementById('valor-financiado-display').innerText = formatNumber(C, 0) + " €";
+
+            let n = parseInt(document.getElementById('prazo-slider').value) || 0;
+            let jurosAnual = parseFloat(document.getElementById('juros-slider').value) || 0;
+            
+            if (C <= 0 || n <= 0 || jurosAnual <= 0) {
+                document.getElementById('resultado').innerText = "0 €";
+                return;
+            }
+
+            let i = (jurosAnual / 100) / 12;
+            let P = ( C * i ) / ( 1 - ( 1 / Math.pow(1 + i, n) ) ) ;
+            let emprestimo = P * n;
+            
+            // Output final formatted number
+            let formatted = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(P);
+            document.getElementById('resultado').innerText = formatted;
+            document.getElementById('emprestimo').innerText = formatNumber(emprestimo, 0) + " €";
+        }
+
+        // Run this once when the page loads to format the initial values
+        window.onload = function() {
+            ['imovel', 'entrada', 'prazo', 'juros'].forEach(id => {
+                formatText(id);
+            });
+            calculate();
+        };
+    </script>
+</body>
+</html>
